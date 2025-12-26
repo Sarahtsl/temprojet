@@ -21,8 +21,9 @@ def latest_json(request):
     return JsonResponse({
         "temp": float(last.temperature),
         "hum": float(last.humidity),
-        "date": last.created_at.isoformat()
+        "date": last.created_at.isoformat(),
     })
+
 
 
 # ---------- HISTORIQUE TEMPÉRATURE ----------
