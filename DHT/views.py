@@ -1,18 +1,36 @@
-from django.shortcuts import render
+from django.shortcuts import render, redirect
 from django.http import JsonResponse, HttpResponse
 from django.utils.safestring import mark_safe
+from django.contrib.auth.decorators import login_required
+from django.contrib.auth import login
+from django.contrib.auth.forms import UserCreationForm
+
 from .models import Dht11
 import json
 import csv
 
 
-# ---------- DASHBOARD ----------
+# ===================== AUTH (INSCRIPTION) =====================
+def register_view(request):
+    if request.method == "POST":
+        form = UserCreationForm(request.POST)
+        if form.is_valid():
+            user = form.save()
+            login(request, user)  # connexion مباشرة بعد التسجيل
+            return redirect("dashboard")
+    else:
+        form = UserCreationForm()
+
+    return render(request, "register.html", {"form": form})
+
+
+# ===================== DASHBOARD =====================
+@login_required(login_url="login")
 def dashboard(request):
-    # page avec les 2 cartes (temp & humidité)
     return render(request, "dashboard.html")
 
 
-# ---------- /latest/ ----------
+# ===================== /latest/ (tu peux le laisser public) =====================
 def latest_json(request):
     last = Dht11.objects.order_by("-created_at").first()
     if not last:
@@ -25,8 +43,8 @@ def latest_json(request):
     })
 
 
-
-# ---------- HISTORIQUE TEMPÉRATURE ----------
+# ===================== HISTORIQUE TEMPÉRATURE =====================
+@login_required(login_url="login")
 def temperature_history(request):
     start_date = request.GET.get("start_date")
     end_date = request.GET.get("end_date")
@@ -38,19 +56,20 @@ def temperature_history(request):
         qs = qs.filter(created_at__date__lte=end_date)
 
     labels = [m.created_at.strftime("%Y-%m-%d %H:%M") for m in qs]
-    temps  = [float(m.temperature) for m in qs]
-    hums   = [float(m.humidity) for m in qs]
+    temps = [float(m.temperature) for m in qs]
+    hums = [float(m.humidity) for m in qs]
 
     context = {
         "labels": mark_safe(json.dumps(labels)),
-        "temps":  mark_safe(json.dumps(temps)),
-        "hums":   mark_safe(json.dumps(hums)),
+        "temps": mark_safe(json.dumps(temps)),
+        "hums": mark_safe(json.dumps(hums)),
         "start_date": start_date or "",
-        "end_date":   end_date or "",
+        "end_date": end_date or "",
     }
     return render(request, "temperature_history.html", context)
 
 
+@login_required(login_url="login")
 def temperature_history_csv(request):
     start_date = request.GET.get("start_date")
     end_date = request.GET.get("end_date")
@@ -71,7 +90,9 @@ def temperature_history_csv(request):
 
     return response
 
-# ---------- HISTORIQUE HUMIDITÉ ----------
+
+# ===================== HISTORIQUE HUMIDITÉ =====================
+@login_required(login_url="login")
 def humidity_history(request):
     start_date = request.GET.get("start_date")
     end_date = request.GET.get("end_date")
@@ -82,25 +103,21 @@ def humidity_history(request):
     if end_date:
         qs = qs.filter(created_at__date__lte=end_date)
 
-    # ⚠️ important : ISO 8601 pour l'axe temps
     labels = [m.created_at.isoformat() for m in qs]
-    temps  = [float(m.temperature) for m in qs]
-    hums   = [float(m.humidity) for m in qs]
-
-    from django.utils.safestring import mark_safe
-    import json
+    temps = [float(m.temperature) for m in qs]
+    hums = [float(m.humidity) for m in qs]
 
     context = {
         "labels": mark_safe(json.dumps(labels)),
-        "temps":  mark_safe(json.dumps(temps)),
-        "hums":   mark_safe(json.dumps(hums)),
+        "temps": mark_safe(json.dumps(temps)),
+        "hums": mark_safe(json.dumps(hums)),
         "start_date": start_date or "",
-        "end_date":   end_date or "",
+        "end_date": end_date or "",
     }
     return render(request, "humidity_history.html", context)
 
 
-
+@login_required(login_url="login")
 def humidity_history_csv(request):
     start_date = request.GET.get("start_date")
     end_date = request.GET.get("end_date")
