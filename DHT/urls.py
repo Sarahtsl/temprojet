@@ -1,14 +1,19 @@
 from django.urls import path
 from django.contrib.auth import views as auth_views
+from django.views.generic import RedirectView
 from . import views
 
 urlpatterns = [
-    # ====================== PAGES ======================
-    path("", views.dashboard, name="dashboard"),
+    # ====================== HOME ======================
+    # /  --> redirige vers la page de login
+    path("", RedirectView.as_view(pattern_name="login", permanent=False)),
+
+    # ====================== PAGES =====================
+    path("dashboard/", views.dashboard, name="dashboard"),
 
     # ======================= API ======================
     path("latest/", views.latest_json, name="latest_json"),
-    path("api/post/", views.esp8266_api, name="esp8266_api"),  # <-- ESP8266
+    path("api/post/", views.esp8266_api, name="esp8266_api"),
 
     # ================== TEMPERATURE ===================
     path("temperature/history/", views.temperature_history, name="temperature_history"),

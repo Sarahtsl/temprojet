@@ -140,26 +140,52 @@ def humidity_history_csv(request):
 
 @csrf_exempt
 def esp8266_api(request):
-    if request.method != "POST":
-        return JsonResponse({"error": "POST uniquement"}, status=405)
+    # ======= POST : appelé par l'ESP8266 =======
+    if request.method == "POST":
+        try:
+            data = json.loads(request.body.decode("utf-8"))
+        except json.JSONDecodeError:
+            return JsonResponse({"error": "JSON invalide"}, status=400)
 
-    try:
-        data = json.loads(request.body.decode("utf-8"))
-    except json.JSONDecodeError:
-        return JsonResponse({"error": "JSON invalide"}, status=400)
+        temperature = data.get("temperature")
+        humidity = data.get("humidity")
+        sensor_id = data.get("sensor_id", 1)  # 1 par défaut
 
-    temperature = data.get("temperature")
-    humidity = data.get("humidity")
-    sensor_id = data.get("sensor_id", 1)  # par défaut 1 si non envoyé
+        if temperature is None or humidity is None:
+            return JsonResponse({"error": "champs manquants"}, status=400)
 
-    if temperature is None or humidity is None:
-        return JsonResponse({"error": "champs manquants"}, status=400)
+        # Enregistrement dans la BD
+        mesure = Dht11.objects.create(
+            temperature=temperature,
+            humidity=humidity,
+            sensor_id=sensor_id,
+        )
 
-    # Enregistrement dans la BD
-    Dht11.objects.create(
-        temperature=temperature,
-        humidity=humidity,
-        sensor_id=sensor_id,
-    )
+        return JsonResponse({
+            "status": "ok",
+            "temperature": float(mesure.temperature),
+            "humidity": float(mesure.humidity),
+            "date": mesure.created_at.isoformat(),
+            "sensor_id": mesure.sensor_id,
+        }, status=201)
 
-    return JsonResponse({"status": "ok"}, status=201)
+    # ======= GET : retourner la DERNIERE valeur =======
+    elif request.method == "GET":
+        last = Dht11.objects.order_by("-created_at").first()
+        if not last:
+            return JsonResponse({
+                "temperature": None,
+                "humidity": None,
+                "date": None,
+                "sensor_id": None,
+            })
+
+        return JsonResponse({
+            "temperature": float(last.temperature),
+            "humidity": float(last.humidity),
+            "date": last.created_at.isoformat(),
+            "sensor_id": last.sensor_id,
+        })
+
+    # ======= Autres méthodes non supportées =======
+    return JsonResponse({"error": "Méthode non supportée"}, status=405)
