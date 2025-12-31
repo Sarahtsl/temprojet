@@ -1,61 +1,100 @@
 <!DOCTYPE html>
 <html lang="fr">
+
 <head>
-  <meta charset="UTF-8"/>
-  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <meta charset="UTF-8" />
   <title>Inscription</title>
   <style>
-    body{margin:0;font-family:Arial;min-height:100vh;display:flex;align-items:center;justify-content:center;
-      background:linear-gradient(135deg,#0b1c3a,#0e3a7a);padding:20px}
-    .card{width:100%;max-width:460px;background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.15);
-      backdrop-filter:blur(10px);border-radius:18px;padding:28px;color:#fff;box-shadow:0 18px 60px rgba(0,0,0,.35)}
-    h1{margin:0 0 8px;font-size:26px} p{margin:0 0 18px;opacity:.9}
-    label{display:block;margin:12px 0 6px;font-size:14px;opacity:.95}
-    input{width:100%;padding:12px;border-radius:12px;border:1px solid rgba(255,255,255,.18);
-      background:rgba(255,255,255,.08);color:#fff;outline:none}
-    .btn{width:100%;margin-top:16px;padding:12px;border:none;border-radius:12px;
-      background:linear-gradient(135deg,#2f7bff,#1a49b8);color:#fff;font-weight:700;cursor:pointer}
-    .links{margin-top:14px;text-align:center;font-size:14px}
-    .links a{color:#9fd3ff;text-decoration:none}
-    .error{background:rgba(255,0,0,.12);border:1px solid rgba(255,0,0,.25);padding:10px;border-radius:12px;margin-bottom:12px}
+    body {
+      margin: 0;
+      padding: 0;
+      font-family: Arial, sans-serif;
+      background: #eef4ff;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      height: 100vh;
+    }
+
+    .card {
+      background: white;
+      padding: 30px;
+      width: 350px;
+      border-radius: 12px;
+      box-shadow: 0 0 20px rgba(0, 0, 0, 0.1);
+      text-align: center;
+    }
+
+    h1 {
+      margin-bottom: 20px;
+      font-size: 22px;
+      color: #1f4fff;
+    }
+
+    form p {
+      text-align: left;
+      margin-bottom: 15px;
+    }
+
+    input {
+      width: 100%;
+      padding: 10px;
+      border-radius: 6px;
+      border: 1px solid #ccc;
+      font-size: 15px;
+    }
+
+    button {
+      width: 100%;
+      background: #1f4fff;
+      color: white;
+      padding: 10px;
+      border-radius: 6px;
+      border: none;
+      font-size: 16px;
+      cursor: pointer;
+      margin-top: 10px;
+    }
+
+    button:hover {
+      background: #1638b8;
+    }
+
+    a {
+      color: #1f4fff;
+      text-decoration: none;
+    }
+
+    a:hover {
+      text-decoration: underline;
+    }
   </style>
 </head>
+
 <body>
   <div class="card">
-    <h1>Inscription</h1>
-    <p>Créez votre compte</p>
+    <h1>Créer un compte</h1>
 
-    {% if form.errors %}
-      <div class="error">
-        {% for field in form %}
-          {% for error in field.errors %}
-            <div>- {{ error }}</div>
-          {% endfor %}
-        {% endfor %}
-        {% for error in form.non_field_errors %}
-          <div>- {{ error }}</div>
-        {% endfor %}
-      </div>
-    {% endif %}
-
-    <form method="post">
+    <form method="post" action="{% url 'register' %}">
       {% csrf_token %}
 
-      <label>Nom d’utilisateur</label>
-      <input type="text" name="username" required>
+      {{ form.non_field_errors }}
 
-      <label>Mot de passe</label>
-      <input type="password" name="password1" required>
+      {% for field in form %}
+      <p>
+        {{ field.label_tag }}<br>
+        {{ field }}
+        {{ field.errors }}
+      </p>
+      {% endfor %}
 
-      <label>Confirmer le mot de passe</label>
-      <input type="password" name="password2" required>
-
-      <button class="btn" type="submit">Créer un compte</button>
+      <button type="submit">S'inscrire</button>
     </form>
 
-    <div class="links">
+    <p style="margin-top: 15px;">
       Déjà un compte ? <a href="{% url 'login' %}">Se connecter</a>
-    </div>
+    </p>
   </div>
 </body>
+
 </html>

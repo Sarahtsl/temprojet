@@ -20,11 +20,3 @@ class DhtViews(APIView):
             serializer.save()
             return Response({"message": "OK"}, status=status.HTTP_201_CREATED)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
-
-    def get(self, request, *args, **kwargs):
-        last = Dht11.objects.order_by("-created_at").first()  # adapte si ton champ s'appelle autrement
-        if not last:
-            return Response({"detail": "no data"}, status=status.HTTP_404_NOT_FOUND)
-
-        data = Dht11Serializer(last).data
-        return Response(data, status=status.HTTP_200_OK)

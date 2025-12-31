@@ -1,49 +1,89 @@
 from django.shortcuts import render, redirect
 from django.http import JsonResponse, HttpResponse
 from django.utils.safestring import mark_safe
+
 from django.contrib.auth.decorators import login_required
-from django.contrib.auth import login
-from django.contrib.auth.forms import UserCreationForm
-from django.views.decorators.csrf import csrf_exempt
+from django.contrib.auth import login, logout
+from django.contrib.auth.forms import UserCreationForm, AuthenticationForm
+
 from .models import Dht11
 import json
 import csv
 
 
-# ===================== AUTH (INSCRIPTION) =====================
+# ===================== AUTH =====================
+
 def register_view(request):
+    """
+    Inscription d'un nouvel utilisateur.
+    Après inscription, on le connecte et on l'envoie vers le dashboard.
+    """
     if request.method == "POST":
         form = UserCreationForm(request.POST)
         if form.is_valid():
             user = form.save()
-            login(request, user)  # connexion مباشرة بعد التسجيل
+            login(request, user)  # connexion directe après inscription
             return redirect("dashboard")
     else:
         form = UserCreationForm()
-
     return render(request, "register.html", {"form": form})
 
 
+def login_view(request):
+    """
+    Page de connexion.
+    """
+    if request.method == "POST":
+        form = AuthenticationForm(request, data=request.POST)
+        if form.is_valid():
+            user = form.get_user()
+            login(request, user)
+            return redirect("dashboard")
+    else:
+        form = AuthenticationForm()
+    return render(request, "login.html", {"form": form})
+
+
+def logout_view(request):
+    """
+    Déconnexion puis redirection vers la page de login.
+    """
+    logout(request)
+    return redirect("login")
+
+
 # ===================== DASHBOARD =====================
+
 @login_required(login_url="login")
 def dashboard(request):
+    """
+    Page principale avec les cartes Température / Humidité.
+    """
     return render(request, "dashboard.html")
 
 
-# ===================== /latest/ (tu peux le laisser public) =====================
+# ===================== /latest/ (public) =====================
+
 def latest_json(request):
+    """
+    Renvoie la dernière mesure en JSON.
+    (Tu peux la laisser publique, utile pour le dashboard ou une autre app.)
+    """
     last = Dht11.objects.order_by("-created_at").first()
     if not last:
         return JsonResponse({"temp": None, "hum": None, "date": None})
 
-    return JsonResponse({
-        "temp": float(last.temperature),
-        "hum": float(last.humidity),
-        "date": last.created_at.isoformat(),
-    })
+    return JsonResponse(
+        {
+            "temp": float(last.temperature),
+            "hum": float(last.humidity),
+            "date": last.created_at.isoformat(),
+        }
+    )
 
 
 # ===================== HISTORIQUE TEMPÉRATURE =====================
+
 @login_required(login_url="login")
 def temperature_history(request):
     start_date = request.GET.get("start_date")
@@ -92,6 +132,7 @@ def temperature_history_csv(request):
 
 
 # ===================== HISTORIQUE HUMIDITÉ =====================
+
 @login_required(login_url="login")
 def humidity_history(request):
     start_date = request.GET.get("start_date")
@@ -137,55 +178,3 @@ def humidity_history_csv(request):
         writer.writerow([m.created_at, m.sensor_id, m.temperature, m.humidity])
 
     return response
-
-@csrf_exempt
-def esp8266_api(request):
-    # ======= POST : appelé par l'ESP8266 =======
-    if request.method == "POST":
-        try:
-            data = json.loads(request.body.decode("utf-8"))
-        except json.JSONDecodeError:
-            return JsonResponse({"error": "JSON invalide"}, status=400)
-
-        temperature = data.get("temperature")
-        humidity = data.get("humidity")
-        sensor_id = data.get("sensor_id", 1)  # 1 par défaut
-
-        if temperature is None or humidity is None:
-            return JsonResponse({"error": "champs manquants"}, status=400)
-
-        # Enregistrement dans la BD
-        mesure = Dht11.objects.create(
-            temperature=temperature,
-            humidity=humidity,
-            sensor_id=sensor_id,
-        )
-
-        return JsonResponse({
-            "status": "ok",
-            "temperature": float(mesure.temperature),
-            "humidity": float(mesure.humidity),
-            "date": mesure.created_at.isoformat(),
-            "sensor_id": mesure.sensor_id,
-        }, status=201)
-
-    # ======= GET : retourner la DERNIERE valeur =======
-    elif request.method == "GET":
-        last = Dht11.objects.order_by("-created_at").first()
-        if not last:
-            return JsonResponse({
-                "temperature": None,
-                "humidity": None,
-                "date": None,
-                "sensor_id": None,
-            })
-
-        return JsonResponse({
-            "temperature": float(last.temperature),
-            "humidity": float(last.humidity),
-            "date": last.created_at.isoformat(),
-            "sensor_id": last.sensor_id,
-        })
-
-    # ======= Autres méthodes non supportées =======
-    return JsonResponse({"error": "Méthode non supportée"}, status=405)
