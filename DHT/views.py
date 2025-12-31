@@ -4,7 +4,7 @@ from django.utils.safestring import mark_safe
 from django.contrib.auth.decorators import login_required
 from django.contrib.auth import login
 from django.contrib.auth.forms import UserCreationForm
-
+from django.views.decorators.csrf import csrf_exempt
 from .models import Dht11
 import json
 import csv
@@ -137,3 +137,25 @@ def humidity_history_csv(request):
         writer.writerow([m.created_at, m.sensor_id, m.temperature, m.humidity])
 
     return response
+@csrf_exempt
+def esp8266_api(request):
+    if request.method == "POST":
+        try:
+            data = json.loads(request.body.decode("utf-8"))
+        except json.JSONDecodeError:
+            return JsonResponse({"error": "JSON invalide"}, status=400)
+
+        temp = data.get("temperature")
+        hum = data.get("humidity")
+
+        if temp is None or hum is None:
+            return JsonResponse({"error": "champs manquants"}, status=400)
+
+        Dht11.objects.create(
+            temperature=temp,
+            humidity=hum,
+        )
+
+        return JsonResponse({"status": "ok"}, status=201)
+
+    return JsonResponse({"error": "POST uniquement"}, status=405)

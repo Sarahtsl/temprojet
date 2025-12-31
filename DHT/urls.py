@@ -8,6 +8,7 @@ urlpatterns = [
 
     # api
     path("latest/", views.latest_json, name="latest_json"),
+    path("api/", views.esp8266_api, name="esp8266_api"),  # 🆕 ICI
 
     # temperature
     path("temperature/history/", views.temperature_history, name="temperature_history"),
