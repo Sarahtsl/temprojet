@@ -17,7 +17,7 @@ urlpatterns = [
     # Data APIs
     path("latest/", views.latest_json, name="latest_json"),
     path("api/", api.DList.as_view(), name="json"),
-    path("api/post", api.DhtViews.as_view(), name="json_post"),
+    path("api/post/", api.DhtViews.as_view(), name="json_post"),
 
     # Historique
     path("temperature/history/", views.temperature_history, name="temperature_history"),
