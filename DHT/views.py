@@ -137,25 +137,29 @@ def humidity_history_csv(request):
         writer.writerow([m.created_at, m.sensor_id, m.temperature, m.humidity])
 
     return response
+
 @csrf_exempt
 def esp8266_api(request):
-    if request.method == "POST":
-        try:
-            data = json.loads(request.body.decode("utf-8"))
-        except json.JSONDecodeError:
-            return JsonResponse({"error": "JSON invalide"}, status=400)
+    if request.method != "POST":
+        return JsonResponse({"error": "POST uniquement"}, status=405)
 
-        temp = data.get("temperature")
-        hum = data.get("humidity")
+    try:
+        data = json.loads(request.body.decode("utf-8"))
+    except json.JSONDecodeError:
+        return JsonResponse({"error": "JSON invalide"}, status=400)
 
-        if temp is None or hum is None:
-            return JsonResponse({"error": "champs manquants"}, status=400)
+    temperature = data.get("temperature")
+    humidity = data.get("humidity")
+    sensor_id = data.get("sensor_id", 1)  # par défaut 1 si non envoyé
 
-        Dht11.objects.create(
-            temperature=temp,
-            humidity=hum,
-        )
+    if temperature is None or humidity is None:
+        return JsonResponse({"error": "champs manquants"}, status=400)
 
-        return JsonResponse({"status": "ok"}, status=201)
+    # Enregistrement dans la BD
+    Dht11.objects.create(
+        temperature=temperature,
+        humidity=humidity,
+        sensor_id=sensor_id,
+    )
 
-    return JsonResponse({"error": "POST uniquement"}, status=405)
+    return JsonResponse({"status": "ok"}, status=201)
