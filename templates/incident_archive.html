@@ -23,6 +23,7 @@
       <tr>
         <th>ID</th>
         <th>Début</th>
+          <th>Fin</th>
         <th>Temp max</th>
         <th>Compteur</th>
         <th>Détails</th>
@@ -33,6 +34,7 @@
 <tr>
   <td>{{ inc.id }}</td>
   <td>{{ inc.start_time|date:"d/m/Y H:i:s" }}</td>
+      <td>{{ inc.end_time_display|date:"d/m/Y H:i:s" }}</td>
   <td>{{ inc.max_temperature }} °C</td>
   <td>{{ inc.counter }}</td>
   <td><a href="{% url 'incident_detail' inc.id %}">Voir</a></td>

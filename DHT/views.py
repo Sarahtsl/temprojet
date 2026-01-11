@@ -214,13 +214,21 @@ def humidity_history_csv(request):
 
     return response
 
-@login_required(login_url="login")
 def incident_archive(request):
-    incidents = Incident.objects.filter(end_time__isnull=False).order_by("-start_time")
+    # Récupérer tous les incidents, qu'ils soient clôturés ou actifs
+    incidents = Incident.objects.all().order_by("-start_time")
+
+    # Préparer un champ pour l'affichage de end_time
+    for inc in incidents:
+        if inc.end_time is None:
+            # Si l'incident est actif, afficher la date/heure actuelle
+            inc.end_time_display = timezone.localtime(timezone.now())
+        else:
+            inc.end_time_display = inc.end_time
+
     return render(request, "incident_archive.html", {
         "incidents": incidents
     })
-
 
 @login_required(login_url="login")
 def incident_detail(request, incident_id):
