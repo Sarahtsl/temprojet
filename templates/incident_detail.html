@@ -1,0 +1,26 @@
+<!doctype html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8">
+  <title>Détails Incident</title>
+  <style>
+    body{font-family:Arial;background:#f6f8fb;margin:0;padding:30px}
+    .box{background:#fff;padding:20px;border-radius:12px;box-shadow:0 4px 12px rgba(0,0,0,.08)}
+    .row{margin:8px 0}
+    b{display:inline-block;width:180px}
+    a{color:#1f6feb;text-decoration:none}
+  </style>
+</head>
+<body>
+
+<a href="{% url 'incident_archive' %}">← Retour aux archives</a>
+<h1>Détails incident #{{ incident.id }}</h1>
+
+<div class="row"><b>Début :</b> {{ incident.start_time|date:"d/m/Y H:i:s" }}</div>
+<div class="row"><b>Fin :</b> {{ incident.end_time|date:"d/m/Y H:i:s" }}</div>
+<div class="row"><b>Température max :</b> {{ incident.max_temperature }} °C</div>
+<div class="row"><b>Compteur :</b> {{ incident.counter }}</div>
+
+
+</body>
+</html>

@@ -1,0 +1,62 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<title>Poster une mesure</title>
+<meta name="csrf-token" content="{{ csrf_token }}">
+<style>
+body { font-family:"Segoe UI", Arial, sans-serif; padding:40px; background:#f4f7fa; }
+form { background:white; padding:20px; border-radius:12px; max-width:400px; margin:auto; box-shadow:0 6px 14px rgba(0,0,0,0.1); }
+input, button { width:100%; padding:10px; margin-top:10px; border-radius:6px; border:1px solid #ccc; }
+button { background:#2563eb; color:white; border:none; cursor:pointer; }
+button:hover { background:#1d4ed8; }
+</style>
+</head>
+<body>
+
+<h2>Poster une mesure DHT11</h2>
+<form id="post-form">
+  <label>Température (°C)</label>
+  <input type="number" step="0.1" id="temperature" required>
+
+  <label>Humidité (%)</label>
+  <input type="number" step="0.1" id="humidity" required>
+
+  <button type="submit">Envoyer</button>
+</form>
+
+<script>
+const form = document.getElementById("post-form");
+
+function getCSRFToken() {
+  const meta = document.querySelector("meta[name='csrf-token']");
+  return meta ? meta.getAttribute("content") : "";
+}
+
+form.addEventListener("submit", async (e) => {
+  e.preventDefault();
+
+  const temp = parseFloat(document.getElementById("temperature").value);
+  const hum = parseFloat(document.getElementById("humidity").value);
+
+  const res = await fetch("/api/post/", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      "X-CSRFToken": getCSRFToken()
+    },
+    body: JSON.stringify({ temperature: temp, humidity: hum })
+  });
+
+  if (res.ok) {
+    alert("✅ Mesure envoyée avec succès !");
+    form.reset();
+  } else {
+    const data = await res.json();
+    alert("❌ Erreur : " + (data.error || "Serveur"));
+  }
+});
+</script>
+<a href="/dashboard/">← Retour au dashboard</a>
+</body>
+</html>

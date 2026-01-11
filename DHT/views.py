@@ -1,12 +1,15 @@
+
 from django.shortcuts import render, redirect
 from django.http import JsonResponse, HttpResponse
 from django.utils.safestring import mark_safe
-
+from django.views.decorators.csrf import csrf_exempt
+from django.utils import timezone
 from django.contrib.auth.decorators import login_required
 from django.contrib.auth import login, logout
 from django.contrib.auth.forms import UserCreationForm, AuthenticationForm
+from django.shortcuts import render, get_object_or_404
+from .models import Dht11, Incident
 
-from .models import Dht11
 import json
 import csv
 
@@ -14,15 +17,11 @@ import csv
 # ===================== AUTH =====================
 
 def register_view(request):
-    """
-    Inscription d'un nouvel utilisateur.
-    Après inscription, on le connecte et on l'envoie vers le dashboard.
-    """
     if request.method == "POST":
         form = UserCreationForm(request.POST)
         if form.is_valid():
             user = form.save()
-            login(request, user)  # connexion directe après inscription
+            login(request, user)
             return redirect("dashboard")
     else:
         form = UserCreationForm()
@@ -30,9 +29,6 @@ def register_view(request):
 
 
 def login_view(request):
-    """
-    Page de connexion.
-    """
     if request.method == "POST":
         form = AuthenticationForm(request, data=request.POST)
         if form.is_valid():
@@ -45,9 +41,6 @@ def login_view(request):
 
 
 def logout_view(request):
-    """
-    Déconnexion puis redirection vers la page de login.
-    """
     logout(request)
     return redirect("login")
 
@@ -56,30 +49,97 @@ def logout_view(request):
 
 @login_required(login_url="login")
 def dashboard(request):
-    """
-    Page principale avec les cartes Température / Humidité.
-    """
     return render(request, "dashboard.html")
 
 
-# ===================== /latest/ (public) =====================
+# ===================== /latest/ =====================
+# Donnée brute capteur (utilisée par le JS)
 
 def latest_json(request):
-    """
-    Renvoie la dernière mesure en JSON.
-    (Tu peux la laisser publique, utile pour le dashboard ou une autre app.)
-    """
     last = Dht11.objects.order_by("-created_at").first()
-    if not last:
-        return JsonResponse({"temp": None, "hum": None, "date": None})
 
-    return JsonResponse(
-        {
-            "temp": float(last.temperature),
-            "hum": float(last.humidity),
-            "date": last.created_at.isoformat(),
-        }
-    )
+    if not last:
+        return JsonResponse({
+            "temp": None,
+            "hum": None,
+            "date": None
+        })
+
+    return JsonResponse({
+        "temp": float(last.temperature),
+        "hum": float(last.humidity),
+        "date": last.created_at.isoformat()
+    })
+
+
+# ===================== INCIDENT STATUS =====================
+
+def incident_status(request):
+    incident = Incident.objects.filter(end_time__isnull=True).last()
+
+    if not incident:
+        return JsonResponse({"active": False})
+
+    return JsonResponse({
+        "active": True,
+        "counter": incident.counter,
+        "max_temperature": incident.max_temperature,
+        "start_time": incident.start_time.isoformat()
+    })
+
+
+# ===================== INCIDENT UPDATE (OPÉRATEURS) =====================
+
+@csrf_exempt
+def incident_update(request):
+    if request.method != "POST":
+        return JsonResponse({"error": "POST required"}, status=400)
+
+    data = json.loads(request.body)
+    op = data.get("op")
+    ack = data.get("ack")
+    comment = data.get("comment")
+
+    incident = Incident.objects.filter(end_time__isnull=True).last()
+    if not incident:
+        return JsonResponse({"error": "no active incident"}, status=400)
+
+    if op == 1:
+        incident.op1_ack = ack
+        incident.op1_comment = comment
+    elif op == 2:
+        incident.op2_ack = ack
+        incident.op2_comment = comment
+    elif op == 3:
+        incident.op3_ack = ack
+        incident.op3_comment = comment
+
+    incident.save()
+    return JsonResponse({"status": "ok"})
+
+
+# ===================== INCIDENT LOGIQUE (ÉTAPE 3) =====================
+# Appelée automatiquement à chaque nouvelle mesure
+
+def process_incident(temperature):
+    incident = Incident.objects.filter(end_time__isnull=True).last()
+    is_alert = temperature < 2 or temperature > 8
+
+    if is_alert:
+        if not incident:
+            Incident.objects.create(
+                start_time=timezone.now(),
+                counter=1,
+                max_temperature=temperature
+            )
+        else:
+            incident.counter += 1
+            incident.max_temperature = max(incident.max_temperature, temperature)
+            incident.save()
+    else:
+        if incident:
+            incident.end_time = timezone.now()
+            incident.save()
 
 
 # ===================== HISTORIQUE TEMPÉRATURE =====================
@@ -99,32 +159,24 @@ def temperature_history(request):
     temps = [float(m.temperature) for m in qs]
     hums = [float(m.humidity) for m in qs]
 
-    context = {
+    return render(request, "temperature_history.html", {
         "labels": mark_safe(json.dumps(labels)),
         "temps": mark_safe(json.dumps(temps)),
         "hums": mark_safe(json.dumps(hums)),
         "start_date": start_date or "",
         "end_date": end_date or "",
-    }
-    return render(request, "temperature_history.html", context)
+    })
 
 
 @login_required(login_url="login")
 def temperature_history_csv(request):
-    start_date = request.GET.get("start_date")
-    end_date = request.GET.get("end_date")
-
     qs = Dht11.objects.all().order_by("created_at")
-    if start_date:
-        qs = qs.filter(created_at__date__gte=start_date)
-    if end_date:
-        qs = qs.filter(created_at__date__lte=end_date)
 
     response = HttpResponse(content_type="text/csv")
     response["Content-Disposition"] = 'attachment; filename="temperature_history.csv"'
 
     writer = csv.writer(response)
-    writer.writerow(["Date", "Capteur", "Température (°C)", "Humidité (%)"])
+    writer.writerow(["Date", "Capteur", "Température", "Humidité"])
     for m in qs:
         writer.writerow([m.created_at, m.sensor_id, m.temperature, m.humidity])
 
@@ -135,46 +187,47 @@ def temperature_history_csv(request):
 
 @login_required(login_url="login")
 def humidity_history(request):
-    start_date = request.GET.get("start_date")
-    end_date = request.GET.get("end_date")
-
     qs = Dht11.objects.all().order_by("created_at")
-    if start_date:
-        qs = qs.filter(created_at__date__gte=start_date)
-    if end_date:
-        qs = qs.filter(created_at__date__lte=end_date)
 
-    labels = [m.created_at.isoformat() for m in qs]
+    labels = [m.created_at.strftime("%Y-%m-%d %H:%M") for m in qs]
     temps = [float(m.temperature) for m in qs]
     hums = [float(m.humidity) for m in qs]
 
-    context = {
+    return render(request, "humidity_history.html", {
         "labels": mark_safe(json.dumps(labels)),
         "temps": mark_safe(json.dumps(temps)),
         "hums": mark_safe(json.dumps(hums)),
-        "start_date": start_date or "",
-        "end_date": end_date or "",
-    }
-    return render(request, "humidity_history.html", context)
+    })
 
 
 @login_required(login_url="login")
 def humidity_history_csv(request):
-    start_date = request.GET.get("start_date")
-    end_date = request.GET.get("end_date")
-
     qs = Dht11.objects.all().order_by("created_at")
-    if start_date:
-        qs = qs.filter(created_at__date__gte=start_date)
-    if end_date:
-        qs = qs.filter(created_at__date__lte=end_date)
 
     response = HttpResponse(content_type="text/csv")
     response["Content-Disposition"] = 'attachment; filename="humidity_history.csv"'
 
     writer = csv.writer(response)
-    writer.writerow(["Date", "Capteur", "Température (°C)", "Humidité (%)"])
+    writer.writerow(["Date", "Capteur", "Température", "Humidité"])
     for m in qs:
         writer.writerow([m.created_at, m.sensor_id, m.temperature, m.humidity])
 
     return response
+
+@login_required(login_url="login")
+def incident_archive(request):
+    incidents = Incident.objects.filter(end_time__isnull=False).order_by("-start_time")
+    return render(request, "incident_archive.html", {
+        "incidents": incidents
+    })
+
+
+@login_required(login_url="login")
+def incident_detail(request, incident_id):
+    incident = get_object_or_404(Incident, id=incident_id)
+    return render(request, "incident_detail.html", {
+        "incident": incident
+    })
+
+def post_data_view(request):
+    return render(request, "post_data.html")

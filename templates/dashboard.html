@@ -1,104 +1,243 @@
-{% load static %}
 <!DOCTYPE html>
 <html lang="fr">
 <head>
-    <meta charset="UTF-8" />
-    <title>Dashboard – Chaîne du froid</title>
+<meta charset="UTF-8">
+<title>Dashboard DHT11</title>
+<meta name="csrf-token" content="{{ csrf_token }}">
+<span id="validation-time"></span>
 
-    <style>
-        body {
-            margin: 0;
-            font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
-            background: #eef3fb;
-            color: #111827;
-        }
-        .page {
-            max-width: 900px;
-            margin: 0 auto;
-            padding: 32px 16px;
-        }
-        h1 {
-            text-align: center;
-            margin-bottom: 24px;
-            font-size: 26px;
-        }
-        .cards {
-            display: flex;
-            justify-content: center;
-            gap: 24px;
-            flex-wrap: wrap;
-        }
+<style>
+* { box-sizing: border-box; margin:0; padding:0; }
 
-        /* --- CARD --- */
-        .card {
-            width: 260px;
-            background: white;
-            border-radius: 16px;
-            box-shadow: 0 8px 25px rgba(15, 23, 42, 0.12);
-            padding: 16px 18px;
-            text-align: center;
-            cursor: pointer;
-            text-decoration: none;
-            color: inherit;
-            transition: transform 0.12s ease, box-shadow 0.12s ease;
-        }
-        .card:hover {
-            transform: translateY(-3px);
-            box-shadow: 0 14px 35px rgba(15, 23, 42, 0.18);
-        }
-        .card-title {
-            background: #3b82f6;
-            color: white;
-            padding: 8px;
-            border-radius: 999px;
-            font-size: 14px;
-            margin-bottom: 16px;
-        }
-        .card-value {
-            font-size: 34px;
-            font-weight: 700;
-            margin-bottom: 8px;
-        }
-        .card-unit {
-            font-size: 20px;
-        }
-        .card-time {
-            font-size: 12px;
-            color: #6b7280;
-        }
-    </style>
+body {
+  font-family: "Segoe UI", Arial, sans-serif;
+  background:#f4f7fa;
+}
+
+/* ===== LAYOUT ===== */
+.layout {
+  display:flex;
+  height:100vh;
+}
+
+/* ===== SIDEBAR ===== */
+.sidebar {
+  width:240px;
+  background:#1f2937;
+  color:white;
+  padding:20px 15px;
+}
+
+.sidebar h2 {
+  text-align:center;
+  margin-bottom:30px;
+  font-size:20px;
+}
+
+.sidebar a {
+  display:block;
+  padding:12px 15px;
+  color:#d1d5db;
+  text-decoration:none;
+  border-radius:6px;
+  margin-bottom:8px;
+}
+
+.sidebar a:hover,
+.sidebar a.active {
+  background:#2563eb;
+  color:white;
+}
+
+/* ===== CONTENT ===== */
+.content {
+  flex:1;
+  padding:30px;
+  overflow-y:auto;
+}
+
+.page-title {
+  font-size:26px;
+  margin-bottom:20px;
+}
+
+/* ===== CARDS ===== */
+.cards {
+  display:flex;
+  gap:25px;
+  margin-bottom:30px;
+}
+
+.card {
+  width:260px;
+  background:white;
+  border-radius:12px;
+  padding:20px;
+  text-align:center;
+  box-shadow:0 6px 14px rgba(0,0,0,0.1);
+}
+
+.card-title {
+  background:#2563eb;
+  color:white;
+  padding:8px;
+  border-radius:6px;
+  margin-bottom:15px;
+  font-weight:bold;
+}
+
+.card-value {
+  font-size:34px;
+  font-weight:bold;
+}
+
+.card-time {
+  color:gray;
+  margin-top:10px;
+}
+
+/* ===== INCIDENT ===== */
+.incident-box {
+  background:white;
+  border-radius:12px;
+  padding:20px;
+  box-shadow:0 6px 14px rgba(0,0,0,0.08);
+}
+
+.badge {
+  padding:6px 10px;
+  border-radius:999px;
+  font-size:13px;
+  color:white;
+}
+
+.ok { background:#22c55e; }
+.alert { background:#ef4444; }
+
+.ops {
+  margin-top:15px;
+  display:flex;
+  gap:12px;
+  flex-wrap:wrap;
+}
+
+.op-card {
+  flex:1;
+  min-width:220px;
+  background:#f8fafc;
+  border:1px solid #e2e8f0;
+  border-radius:8px;
+  padding:12px;
+}
+
+.hidden { display:none; }
+
+.btn {
+  margin-top:10px;
+  padding:8px 14px;
+  background:#2563eb;
+  color:white;
+  border:0;
+  border-radius:6px;
+  cursor:pointer;
+}
+.btn:hover { background:#1d4ed8; }
+
+textarea {
+  width:100%;
+  min-height:60px;
+  margin-top:6px;
+}
+</style>
 </head>
 
 <body>
-<div class="page">
 
-    <h1>Dashboard Température & Humidité (DHT11)</h1>
+<div class="layout">
 
+  <!-- ===== SIDEBAR ===== -->
+ <aside class="sidebar">
+  <h2>DHT11</h2>
+
+  <a href="/dashboard/" class="active">🏠 Dashboard</a>
+  <a href="/temperature/history/">🌡 Température</a>
+  <a href="/humidity/history/">💧 Humidité</a>
+  <a href="/incident/archive/">📂 Archives incidents</a>
+     <a href="/post-data/">➕ Poster une mesure</a>
+  <a href="/logout/">🔓 Déconnexion</a>
+</aside>
+
+
+  <!-- ===== CONTENT ===== -->
+  <main class="content">
+
+    <div class="page-title">Dashboard Température & Humidité</div>
+
+    <!-- CARDS -->
     <div class="cards">
+      <div class="card">
+        <div class="card-title">Température</div>
+        <div class="card-value" id="temp">-- °C</div>
+        <div class="card-time" id="temp-time">--</div>
+      </div>
 
-        <!-- 🔥 Carte Température cliquable → historique température -->
-        <a href="{% url 'temperature_history' %}" class="card">
-            <div class="card-title">Température</div>
-            <div class="card-value">
-                <span id="tempValue">--</span>
-                <span class="card-unit">°C</span>
-            </div>
-            <div id="tempTime" class="card-time">En attente de données...</div>
-        </a>
-
-        <!-- 🔥 Carte Humidité cliquable → historique humidité -->
-        <a href="{% url 'humidity_history' %}" class="card">
-            <div class="card-title">Humidité</div>
-            <div class="card-value">
-                <span id="humValue">--</span>
-                <span class="card-unit">%</span>
-            </div>
-            <div id="humTime" class="card-time">En attente de données...</div>
-        </a>
-
+      <div class="card">
+        <div class="card-title">Humidité</div>
+        <div class="card-value" id="hum">-- %</div>
+        <div class="card-time" id="hum-time">--</div>
+      </div>
     </div>
+
+    <!-- INCIDENT -->
+    <div class="incident-box">
+      <h3>
+        Incidents
+        <span id="incident-badge" class="badge ok">OK</span>
+      </h3>
+
+      <p>Statut : <b id="incident-status">Pas d’incident</b></p>
+      <p>Compteur : <b id="incident-counter">0</b></p>
+
+      <div class="ops"><div id="op1" class="op-card hidden">
+  <b>Opérateur 1</b><br>
+  <input type="checkbox" id="op1_ack"> Accusé<br>
+  <textarea id="op1_comment"></textarea><br>
+  <span>Statut: <span id="op1_status">-</span></span><br>
+  <span>Validation: <span id="op1_ack_status">-</span></span><br>
+  <span>Commentaire validé: <span id="op1_show">-</span></span><br>
+  <button class="btn" id="op1_save">Valider</button>
 </div>
 
-<script src="{% static 'js/dashboard.js' %}"></script>
+<div id="op2" class="op-card hidden">
+  <b>Opérateur 2</b><br>
+  <input type="checkbox" id="op2_ack"> Accusé<br>
+  <textarea id="op2_comment"></textarea><br>
+  <span>Statut: <span id="op2_status">-</span></span><br>
+  <span>Validation: <span id="op2_ack_status">-</span></span><br>
+  <span>Commentaire validé: <span id="op2_show">-</span></span><br>
+  <button class="btn" id="op2_save">Valider</button>
+</div>
+
+<div id="op3" class="op-card hidden">
+  <b>Opérateur 3</b><br>
+  <input type="checkbox" id="op3_ack"> Accusé<br>
+  <textarea id="op3_comment"></textarea><br>
+  <span>Statut: <span id="op3_status">-</span></span><br>
+  <span>Validation: <span id="op3_ack_status">-</span></span><br>
+  <span>Commentaire validé: <span id="op3_show">-</span></span><br>
+  <button class="btn" id="op3_save">Valider</button>
+</div>
+
+</div>
+
+    </div>
+
+  </main>
+</div>
+<form style="display:none;">
+  {% csrf_token %}
+</form>
+
+<script src="/static/js/dashboard.js"></script>
 </body>
 </html>
